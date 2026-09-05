@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Services\License\Client;
+
+enum VerificationStatusCode: string
+{
+    case VALID = 'VALID';
+    case INVALID_STRUCTURE = 'INVALID_STRUCTURE';
+    case INVALID_HEADER = 'INVALID_HEADER';
+    case UNKNOWN_KEY = 'UNKNOWN_KEY';
+    case INVALID_SIGNATURE = 'INVALID_SIGNATURE';
+    case INVALID_PAYLOAD = 'INVALID_PAYLOAD';
+    case INVALID_ISSUER = 'INVALID_ISSUER';
+    case INVALID_AUDIENCE = 'INVALID_AUDIENCE';
+    case INVALID_DOMAIN = 'INVALID_DOMAIN';
+    case NOT_YET_VALID = 'NOT_YET_VALID';
+    case EXPIRED = 'EXPIRED';
+    case LICENSE_EXPIRED = 'LICENSE_EXPIRED';
+    case EXPIRY_INCONSISTENCY = 'EXPIRY_INCONSISTENCY';
+}
