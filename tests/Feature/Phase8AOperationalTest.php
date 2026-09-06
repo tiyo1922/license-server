@@ -172,6 +172,7 @@ class Phase8AOperationalTest extends TestCase
 
         $signer = new Ed25519TokenSigner();
 
+        $this->assertTrue($signer->isEphemeral());
         $this->assertNotEmpty($signer->getPublicKey());
         $this->assertSame(32, strlen($signer->getPublicKey()));
 

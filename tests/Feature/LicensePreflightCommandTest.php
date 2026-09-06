@@ -72,9 +72,28 @@ class LicensePreflightCommandTest extends TestCase
 
         $this->artisan('license:preflight')
             ->assertExitCode(0);
+    }
 
-        // The raw private key base64 must never appear in standard command output
-        $output = ''; // Captured via artisan runner
-        $this->artisan('license:preflight')->expectsOutputToContain('Runtime');
+    /**
+     * Preflight passes with real Ed25519TokenSigner in production when valid private key is configured.
+     */
+    public function test_preflight_passes_with_real_signer_in_production(): void
+    {
+        $keypair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keypair);
+
+        config([
+            'app.env' => 'production',
+            'app.debug' => false,
+            'license.ed25519_private_key' => base64_encode($secretKey),
+        ]);
+
+        $realSigner = new Ed25519TokenSigner();
+        $this->assertFalse($realSigner->isEphemeral());
+        $this->app->instance(TokenSignerInterface::class, $realSigner);
+
+        $this->artisan('license:preflight')
+            ->expectsOutputToContain('PRE-FLIGHT VERIFICATION PASSED')
+            ->assertExitCode(0);
     }
 }

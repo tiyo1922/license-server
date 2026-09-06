@@ -9,6 +9,7 @@ class Ed25519TokenSigner implements TokenSignerInterface
     private string $privateKey;
     private string $publicKey;
     private string $keyId;
+    private bool $isEphemeral = false;
     private TokenVerifierInterface $verifier;
 
     public function __construct(
@@ -71,6 +72,7 @@ class Ed25519TokenSigner implements TokenSignerInterface
             $keypair = sodium_crypto_sign_keypair();
             $this->privateKey = sodium_crypto_sign_secretkey($keypair);
             $this->publicKey = sodium_crypto_sign_publickey($keypair);
+            $this->isEphemeral = true;
         }
 
         if ($verifier !== null) {
@@ -118,6 +120,11 @@ class Ed25519TokenSigner implements TokenSignerInterface
     public function verify(string $token): array
     {
         return $this->verifier->verify($token);
+    }
+
+    public function isEphemeral(): bool
+    {
+        return $this->isEphemeral;
     }
 
     public function getKeyId(): string
