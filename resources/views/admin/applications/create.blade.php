@@ -21,9 +21,9 @@
 
             <div class="form-group">
                 <label for="code" class="form-label">Application Code (Identifier) <span style="color: var(--danger);">*</span></label>
-                <input type="text" id="code" name="code" class="form-control" value="{{ old('code') }}" placeholder="e.g. SUMBER-PROT, WIDGET-PRO" required maxlength="50" style="text-transform: uppercase;">
+                <input type="text" id="code" name="code" class="form-control" value="{{ old('code') }}" placeholder="e.g. SPJ, SPJ22" required maxlength="5" style="text-transform: uppercase;">
                 <p class="form-text">
-                    <strong>Important:</strong> Must be unique, 2–50 uppercase characters, alphanumeric, hyphens, and underscores only.
+                    <strong>Important:</strong> Must be unique, 2–5 uppercase alphanumeric characters (e.g. SPJ, SPJ22).
                     <br><span style="color: #fca5a5;">⚠️ Application Code is <strong>strictly immutable</strong> after creation as it binds to license serials and cryptographic token audience claims.</span>
                 </p>
                 @error('code')

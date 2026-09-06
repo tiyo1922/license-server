@@ -30,7 +30,7 @@ class ApiKeyManagementServiceTest extends TestCase
         $this->keyService = new ApiKeyManagementService();
         $appService = new ApplicationManagementService();
         $this->application = $appService->createApplication([
-            'code' => 'TEST-APP',
+            'code' => 'APP01',
             'name' => 'Test Application',
         ]);
         $this->adminUser = User::factory()->create(['email' => 'admin@example.com']);
@@ -173,7 +173,7 @@ class ApiKeyManagementServiceTest extends TestCase
     {
         $appService = new ApplicationManagementService();
         $otherApp = $appService->createApplication([
-            'code' => 'OTHER-APP',
+            'code' => 'APP02',
             'name' => 'Other App',
         ]);
 
@@ -182,7 +182,7 @@ class ApiKeyManagementServiceTest extends TestCase
         ]);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("does not belong to application [OTHER-APP]");
+        $this->expectExceptionMessage("does not belong to application [APP02]");
 
         // Attempting to revoke App 1's key using App 2 context
         $this->keyService->revokeApiKey($otherApp, $result['apiKey']);

@@ -32,14 +32,14 @@ class ApplicationManagementServiceTest extends TestCase
     public function test_creates_application_successfully(): void
     {
         $app = $this->service->createApplication([
-            'code' => 'WIDGET-PRO',
+            'code' => 'WID01',
             'name' => 'Widget Professional Suite',
             'description' => 'Main enterprise plugin',
         ], $this->adminUser->id);
 
         $this->assertDatabaseHas('applications', [
             'id' => $app->id,
-            'code' => 'WIDGET-PRO',
+            'code' => 'WID01',
             'name' => 'Widget Professional Suite',
             'description' => 'Main enterprise plugin',
             'is_active' => 1,
@@ -60,38 +60,61 @@ class ApplicationManagementServiceTest extends TestCase
     public function test_rejects_duplicate_application_code(): void
     {
         $this->service->createApplication([
-            'code' => 'APP-DUP',
+            'code' => 'APP01',
             'name' => 'First App',
         ]);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Application code [APP-DUP] is already registered.');
+        $this->expectExceptionMessage('Application code [APP01] is already registered.');
 
         $this->service->createApplication([
-            'code' => 'app-dup', // Lowercase should normalize and collide
+            'code' => 'app01', // Lowercase should normalize and collide
             'name' => 'Second App',
         ]);
     }
 
     /**
-     * 3. Code normalization & validation rules.
+     * 3. Code normalization & validation rules (2-5 uppercase alphanumeric characters).
      */
     public function test_validates_and_normalizes_application_code(): void
     {
-        // Lowercase is normalized to uppercase
-        $app = $this->service->createApplication([
-            'code' => '   sumber_protein-app   ',
-            'name' => 'Normalized App',
+        // Valid 2-character code
+        $app2 = $this->service->createApplication([
+            'code' => 'SP',
+            'name' => '2 Char App',
         ]);
+        $this->assertSame('SP', $app2->code);
 
-        $this->assertSame('SUMBER_PROTEIN-APP', $app->code);
-
-        // Invalid characters rejected
-        $this->expectException(InvalidArgumentException::class);
-        $this->service->createApplication([
-            'code' => 'INVALID CODE WITH SPACES!',
-            'name' => 'Invalid Code App',
+        // Valid 5-character alphanumeric code with whitespace normalization
+        $app5 = $this->service->createApplication([
+            'code' => '  spj22  ',
+            'name' => '5 Char Normalized App',
         ]);
+        $this->assertSame('SPJ22', $app5->code);
+
+        // Invalid codes
+        $invalidCodes = [
+            'S',
+            'A',
+            'ABCDEF',
+            '123456',
+            'SUMBER-PROT-1922',
+            'SP-JO',
+            'SP JO',
+            'SP@1',
+        ];
+
+        foreach ($invalidCodes as $invalidCode) {
+            try {
+                $this->service->createApplication([
+                    'code' => $invalidCode,
+                    'name' => 'Invalid Code App',
+                ]);
+                $this->fail("Expected InvalidArgumentException for invalid application code [{$invalidCode}]");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('Must be 2-5 uppercase alphanumeric characters', $e->getMessage());
+            }
+        }
     }
 
     /**
@@ -100,7 +123,7 @@ class ApplicationManagementServiceTest extends TestCase
     public function test_application_code_is_strictly_immutable(): void
     {
         $app = $this->service->createApplication([
-            'code' => 'LOCKED-CODE',
+            'code' => 'LCK01',
             'name' => 'Original Name',
         ]);
 
@@ -108,7 +131,7 @@ class ApplicationManagementServiceTest extends TestCase
         $this->expectExceptionMessage('Application code is strictly immutable and cannot be modified after creation.');
 
         $this->service->updateApplication($app, [
-            'code' => 'MUTATED-CODE',
+            'code' => 'MUTAT',
             'name' => 'Updated Name',
         ]);
     }
@@ -119,7 +142,7 @@ class ApplicationManagementServiceTest extends TestCase
     public function test_updates_application_metadata_successfully(): void
     {
         $app = $this->service->createApplication([
-            'code' => 'META-APP',
+            'code' => 'MET01',
             'name' => 'Initial Title',
             'description' => 'Initial Desc',
         ]);
@@ -131,7 +154,7 @@ class ApplicationManagementServiceTest extends TestCase
 
         $this->assertSame('Revised Title', $updated->name);
         $this->assertSame('Revised Desc', $updated->description);
-        $this->assertSame('META-APP', $updated->code);
+        $this->assertSame('MET01', $updated->code);
 
         $this->assertDatabaseHas('license_logs', [
             'application_id' => $app->id,
@@ -146,7 +169,7 @@ class ApplicationManagementServiceTest extends TestCase
     public function test_toggles_application_active_state(): void
     {
         $app = $this->service->createApplication([
-            'code' => 'TOGGLE-APP',
+            'code' => 'TOG01',
             'name' => 'Toggle Application',
         ]);
 

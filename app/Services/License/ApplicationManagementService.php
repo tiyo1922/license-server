@@ -34,12 +34,8 @@ class ApplicationManagementService
 
         $code = strtoupper(trim($data['code']));
 
-        if (strlen($code) < 2 || strlen($code) > 50) {
-            throw new InvalidArgumentException('Application code must be between 2 and 50 characters.');
-        }
-
-        if (! preg_match('/^[A-Z0-9_\-]+$/', $code)) {
-            throw new InvalidArgumentException('Application code may only contain uppercase letters, numbers, hyphens, and underscores.');
+        if (! preg_match('/^[A-Z0-9]{2,5}$/', $code)) {
+            throw new InvalidArgumentException("Invalid application code [{$code}]. Must be 2-5 uppercase alphanumeric characters.");
         }
 
         if (empty($data['name']) || ! is_string($data['name'])) {

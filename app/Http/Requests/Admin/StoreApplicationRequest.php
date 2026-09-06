@@ -26,13 +26,25 @@ class StoreApplicationRequest extends FormRequest
                 'required',
                 'string',
                 'min:2',
-                'max:50',
-                'regex:/^[A-Z0-9_\-]+$/i',
+                'max:5',
+                'regex:/^[A-Z0-9]{2,5}$/',
                 'unique:applications,code',
             ],
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'code.regex' => 'The application code must be 2 to 5 uppercase alphanumeric characters.',
         ];
     }
 
