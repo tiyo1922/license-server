@@ -9,6 +9,7 @@ use App\Models\License;
 use App\Services\License\LicenseLifecycleService;
 use App\Exceptions\InvalidStateTransitionException;
 use Illuminate\Http\RedirectResponse;
+use InvalidArgumentException;
 
 class LicenseLifecycleController extends Controller
 {
@@ -85,17 +86,22 @@ class LicenseLifecycleController extends Controller
     }
 
     /**
-     * Renew an expired or active time-bound license.
+     * Renew or extend an expired, active, or unused license validity.
      */
     public function renew(RenewLicenseRequest $request, License $license, LicenseLifecycleService $service): RedirectResponse
     {
         try {
-            $service->renew($license, (string) $request->input('expires_at'), $request->input('reason'));
+            $service->renew(
+                license: $license,
+                validityType: $request->validityType() ?? 'custom',
+                newExpiresAt: $request->newExpiresAt(),
+                reason: $request->input('reason')
+            );
 
             return redirect()
                 ->route('admin.licenses.show', $license)
-                ->with('success', 'License expiration renewed successfully.');
-        } catch (InvalidStateTransitionException $e) {
+                ->with('success', 'License validity updated successfully.');
+        } catch (InvalidStateTransitionException|InvalidArgumentException $e) {
             return redirect()
                 ->route('admin.licenses.show', $license)
                 ->with('error', $e->getMessage());

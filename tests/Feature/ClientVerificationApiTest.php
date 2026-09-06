@@ -895,4 +895,39 @@ class ClientVerificationApiTest extends TestCase
             $this->assertStringNotContainsString($token, $logJson);
         }
     }
+
+    public function test_lifetime_license_verification_maintains_null_expires_at_and_supports_rolling_refresh(): void
+    {
+        // 1. Setup activated lifetime license
+        [$license, $activation, $token] = $this->setupActivatedLicense(
+            $this->appA,
+            $this->apiKeyA,
+            $this->plainSecretA,
+            'lifetime.sumberprotein.com',
+            null
+        );
+
+        $this->assertNull($license->expires_at);
+        $this->assertTrue($license->isLifetime());
+
+        // 2. Verify online
+        $verifyRes = $this->postJson('/api/v1/license/verify', [
+            'token' => $token,
+            'domain' => 'lifetime.sumberprotein.com',
+        ], [
+            'X-Api-Key-Id' => $this->apiKeyA->key_id,
+            'X-Api-Secret' => $this->plainSecretA,
+        ]);
+
+        $verifyRes->assertStatus(200);
+        $verifyRes->assertJson([
+            'success' => true,
+            'data' => [
+                'valid' => true,
+                'status' => 'ACTIVE',
+                'canonical_domain' => 'lifetime.sumberprotein.com',
+                'expires_at' => null,
+            ],
+        ]);
+    }
 }

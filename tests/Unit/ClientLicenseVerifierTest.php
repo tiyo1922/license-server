@@ -225,4 +225,37 @@ class ClientLicenseVerifierTest extends TestCase
         $this->assertFalse($result->isValid);
         $this->assertSame(VerificationStatusCode::LICENSE_EXPIRED, $result->statusCode);
     }
+
+    public function test_lifetime_license_token_offline_verification_succeeds_and_identifies_lifetime(): void
+    {
+        $now = time();
+        $token = $this->createValidToken([
+            'exp' => $now + 604800,
+            'lic_exp' => null, // Lifetime: no license expiry timestamp
+        ]);
+
+        $result = $this->clientVerifier->verify($token, 'example.com', $now);
+
+        $this->assertTrue($result->isValid);
+        $this->assertSame(VerificationStatusCode::VALID, $result->statusCode);
+        $this->assertTrue($result->isLifetime());
+        $this->assertNull($result->getLicenseExpiresAt());
+        $this->assertSame($now + 604800, $result->getExpiresAt());
+        $this->assertTrue($result->toArray()['is_lifetime']);
+    }
+
+    public function test_lifetime_token_still_enforces_token_ttl_expiration_offline(): void
+    {
+        $now = time();
+        $token = $this->createValidToken([
+            'exp' => $now - 3600, // Token TTL expired 1 hour ago
+            'lic_exp' => null,   // License is lifetime
+        ]);
+
+        $result = $this->clientVerifier->verify($token, 'example.com', $now);
+
+        $this->assertFalse($result->isValid);
+        $this->assertSame(VerificationStatusCode::EXPIRED, $result->statusCode);
+        $this->assertTrue($result->isLifetime());
+    }
 }

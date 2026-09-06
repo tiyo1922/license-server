@@ -67,6 +67,13 @@ class VerificationResult
         return isset($this->payload['lic_exp']) ? (int) $this->payload['lic_exp'] : null;
     }
 
+    public function isLifetime(): bool
+    {
+        return array_key_exists('lic_exp', $this->payload ?? [])
+            ? $this->payload['lic_exp'] === null
+            : false;
+    }
+
     public function getCustomer(): ?array
     {
         return $this->payload['customer'] ?? null;
@@ -83,6 +90,7 @@ class VerificationResult
             'canonical_domain' => $this->getCanonicalDomain(),
             'expires_at' => $this->getExpiresAt(),
             'license_expires_at' => $this->getLicenseExpiresAt(),
+            'is_lifetime' => $this->isLifetime(),
             'customer' => $this->getCustomer(),
             'evaluated_at' => $this->evaluatedAt,
         ];

@@ -367,6 +367,7 @@ class LicenseLifecycleTransitionTest extends TestCase
         $revoked = $this->createLicense(LicenseStatus::REVOKED);
         $this->actingAs($this->admin)
             ->post(route('admin.licenses.renew', $revoked), [
+                'validity_type' => 'custom',
                 'expires_at' => now()->addYear()->format('Y-m-d H:i:s'),
             ])
             ->assertRedirect()
@@ -375,9 +376,104 @@ class LicenseLifecycleTransitionTest extends TestCase
         $active = $this->createLicense(LicenseStatus::ACTIVE);
         $this->actingAs($this->admin)
             ->post(route('admin.licenses.renew', $active), [
+                'validity_type' => 'custom',
                 'expires_at' => now()->subDay()->format('Y-m-d H:i:s'),
             ])
             ->assertSessionHasErrors('expires_at');
+    }
+
+    public function test_admin_can_renew_expired_license_to_lifetime(): void
+    {
+        $expired = $this->createLicense(LicenseStatus::ACTIVE, now()->subDay());
+        $activation = $this->createActivation($expired, 'renew-lifetime.test');
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.licenses.renew', $expired), [
+                'validity_type' => 'lifetime',
+                'reason' => 'Customer purchased lifetime upgrade',
+            ]);
+
+        $response->assertRedirect(route('admin.licenses.show', $expired));
+        $response->assertSessionHas('success', 'License validity updated successfully.');
+
+        $expired->refresh();
+        $this->assertSame(LicenseStatus::ACTIVE, $expired->status);
+        $this->assertNull($expired->expires_at);
+        $this->assertTrue($expired->isLifetime());
+
+        // Activation preserved
+        $this->assertDatabaseHas('activations', [
+            'id' => $activation->id,
+            'license_id' => $expired->id,
+        ]);
+
+        // Audit log records is_lifetime = true and validity_type = lifetime
+        $log = LicenseLog::where('license_id', $expired->id)
+            ->where('event', LicenseLogEvent::LICENSE_RENEWED)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('lifetime', $log->payload['validity_type']);
+        $this->assertTrue($log->payload['is_lifetime']);
+        $this->assertNull($log->payload['new_expires_at']);
+    }
+
+    public function test_admin_can_update_lifetime_license_to_custom_expiration(): void
+    {
+        $lifetime = $this->createLicense(LicenseStatus::ACTIVE, null);
+        $activation = $this->createActivation($lifetime, 'lifetime-to-custom.test');
+        $newExpiry = now()->addMonths(6)->format('Y-m-d H:i:s');
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.licenses.renew', $lifetime), [
+                'validity_type' => 'custom',
+                'expires_at' => $newExpiry,
+                'reason' => 'Contract modified to 6-month term',
+            ]);
+
+        $response->assertRedirect(route('admin.licenses.show', $lifetime));
+        $response->assertSessionHas('success');
+
+        $lifetime->refresh();
+        $this->assertSame(LicenseStatus::ACTIVE, $lifetime->status);
+        $this->assertNotNull($lifetime->expires_at);
+        $this->assertFalse($lifetime->isLifetime());
+
+        $log = LicenseLog::where('license_id', $lifetime->id)
+            ->where('event', LicenseLogEvent::LICENSE_RENEWED)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('custom', $log->payload['validity_type']);
+        $this->assertFalse($log->payload['is_lifetime']);
+        $this->assertNotNull($log->payload['new_expires_at']);
+    }
+
+    public function test_renewal_validation_rejects_missing_expiration_when_validity_type_is_custom(): void
+    {
+        $active = $this->createLicense(LicenseStatus::ACTIVE);
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.licenses.renew', $active), [
+                'validity_type' => 'custom',
+                'expires_at' => '',
+            ]);
+
+        $response->assertSessionHasErrors('expires_at');
+    }
+
+    public function test_renewal_validation_rejects_invalid_validity_type(): void
+    {
+        $active = $this->createLicense(LicenseStatus::ACTIVE);
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.licenses.renew', $active), [
+                'validity_type' => 'unsupported_type',
+            ]);
+
+        $response->assertSessionHasErrors('validity_type');
     }
 
     // --- ATOMICITY TESTS ---

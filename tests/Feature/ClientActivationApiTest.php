@@ -741,4 +741,38 @@ class ClientActivationApiTest extends TestCase
 
         $res6->assertStatus(429);
     }
+
+    public function test_lifetime_license_activation_returns_null_expires_at_and_null_lic_exp_in_token_claims(): void
+    {
+        [$licenseLifetime, $plainKeyLifetime] = $this->createLicense($this->appA, LicenseStatus::UNUSED, null);
+
+        $response = $this->postJson('/api/v1/license/activate', [
+            'license_key' => $plainKeyLifetime,
+            'domain' => 'lifetime-app.sumberprotein.com',
+        ], [
+            'X-Api-Key-Id' => $this->apiKeyA->key_id,
+            'X-Api-Secret' => $this->plainSecretA,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'data' => [
+                'activated' => true,
+                'status' => 'ACTIVE',
+                'expires_at' => null,
+            ],
+        ]);
+
+        // Decode token payload
+        $token = $response->json('data.token');
+        $parts = explode('.', $token);
+        $this->assertCount(3, $parts);
+        $payload = json_decode(\App\Services\License\Token\Ed25519TokenVerifier::base64UrlDecode($parts[1]), true);
+
+        $this->assertArrayHasKey('lic_exp', $payload);
+        $this->assertNull($payload['lic_exp'], 'lic_exp must be null for lifetime license in signed token claims.');
+        $this->assertArrayHasKey('exp', $payload);
+        $this->assertNotNull($payload['exp'], 'Token exp must exist for offline validity window.');
+    }
 }

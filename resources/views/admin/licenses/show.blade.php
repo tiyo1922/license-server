@@ -147,22 +147,38 @@
         </div>
     </div>
 
-    {{-- Inline Renewal Form --}}
+    {{-- Inline Renewal / Validity Extension Form --}}
     <div id="renew-form-container" style="display: none; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
-        <form action="{{ route('admin.licenses.renew', $license) }}" method="POST" style="max-width: 500px;">
+        <form action="{{ route('admin.licenses.renew', $license) }}" method="POST" style="max-width: 540px;">
             @csrf
-            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: #93c5fd;">Renew License Validity</h3>
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: #93c5fd;">Update License Validity / Renewal</h3>
+            
             <div class="form-group">
-                <label for="renew_expires_at" class="form-label" style="font-size: 0.8rem;">New Expiration Date & Time (UTC) <span style="color: var(--danger);">*</span></label>
-                <input type="datetime-local" id="renew_expires_at" name="expires_at" class="form-control" required style="max-width: 320px;" value="{{ now('UTC')->addYear()->format('Y-m-d\TH:i') }}">
-                <p class="form-text">Must be in the future relative to authoritative server UTC time.</p>
+                <label class="form-label" style="font-size: 0.8rem;">Validity / Expiration Strategy <span style="color: var(--danger);">*</span></label>
+                <div style="display: flex; gap: 1.5rem; margin-top: 0.35rem; margin-bottom: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-main); font-size: 0.85rem;">
+                        <input type="radio" name="validity_type" value="lifetime" {{ old('validity_type', $license->isLifetime() ? 'lifetime' : 'custom') === 'lifetime' ? 'checked' : '' }} onchange="toggleRenewExpirationInput()">
+                        <span><strong>Lifetime</strong> (No expiration)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-main); font-size: 0.85rem;">
+                        <input type="radio" name="validity_type" value="custom" {{ old('validity_type', $license->isLifetime() ? 'lifetime' : 'custom') === 'custom' ? 'checked' : '' }} onchange="toggleRenewExpirationInput()">
+                        <span><strong>Fixed Expiration Date</strong></span>
+                    </label>
+                </div>
+
+                <div id="renew-expiration-input-container" style="display: {{ old('validity_type', $license->isLifetime() ? 'lifetime' : 'custom') === 'custom' ? 'block' : 'none' }}; margin-top: 0.75rem;">
+                    <label for="renew_expires_at" class="form-label" style="font-size: 0.8rem;">New Expiration Date & Time (UTC) <span style="color: var(--danger);">*</span></label>
+                    <input type="datetime-local" id="renew_expires_at" name="expires_at" class="form-control" style="max-width: 320px;" value="{{ old('expires_at', ($license->expires_at && $license->expires_at->isFuture()) ? $license->expires_at->format('Y-m-d\TH:i') : now('UTC')->addYear()->format('Y-m-d\TH:i')) }}">
+                    <p class="form-text">Must be in the future relative to authoritative server UTC time.</p>
+                </div>
             </div>
+
             <div class="form-group">
                 <label for="renew_reason" class="form-label" style="font-size: 0.8rem;">Renewal Notes / Reference (Optional)</label>
-                <input type="text" id="renew_reason" name="reason" class="form-control" placeholder="e.g. Annual renewal invoice #INV-2027-01" maxlength="500">
+                <input type="text" id="renew_reason" name="reason" class="form-control" placeholder="e.g. Annual renewal invoice #INV-2027-01 or Lifetime conversion" maxlength="500" value="{{ old('reason') }}">
             </div>
             <div style="display: flex; gap: 0.5rem;">
-                <button type="submit" class="btn btn-primary">Confirm Renewal</button>
+                <button type="submit" class="btn btn-primary">Confirm Validity Update</button>
                 <button type="button" onclick="toggleRenewForm()" class="btn btn-secondary">Cancel</button>
             </div>
         </form>
@@ -173,6 +189,12 @@
     function toggleRenewForm() {
         const el = document.getElementById('renew-form-container');
         el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    }
+
+    function toggleRenewExpirationInput() {
+        const isCustom = document.querySelector('input[name="validity_type"]:checked').value === 'custom';
+        const container = document.getElementById('renew-expiration-input-container');
+        container.style.display = isCustom ? 'block' : 'none';
     }
 </script>
 

@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class LicenseLifecycleService
 {
@@ -235,13 +236,26 @@ class LicenseLifecycleService
     }
 
     /**
-     * Renew an expired or active time-bound license with a new future expiration timestamp.
+     * Renew an expired or active license with explicit validity type (lifetime or custom future expiration).
      *
-     * @throws InvalidStateTransitionException
+     * @throws InvalidStateTransitionException|InvalidArgumentException
      */
-    public function renew(License $license, string $newExpiresAt, ?string $reason = null, ?int $actorUserId = null): License
-    {
-        return DB::transaction(function () use ($license, $newExpiresAt, $reason, $actorUserId) {
+    public function renew(
+        License $license,
+        string $validityType,
+        ?string $newExpiresAt = null,
+        ?string $reason = null,
+        ?int $actorUserId = null
+    ): License {
+        if ($validityType !== 'lifetime' && $validityType !== 'custom') {
+            throw new InvalidArgumentException("Invalid validity type [{$validityType}]. Must be 'lifetime' or 'custom'.");
+        }
+
+        if ($validityType === 'custom' && empty($newExpiresAt)) {
+            throw new InvalidArgumentException('Expiration timestamp is required for custom validity type.');
+        }
+
+        return DB::transaction(function () use ($license, $validityType, $newExpiresAt, $reason, $actorUserId) {
             $lockedLicense = License::where('id', $license->id)->lockForUpdate()->firstOrFail();
             $serverNow = now('UTC');
             $authoritativeStatus = $lockedLicense->getAuthoritativeStatus($serverNow);
@@ -251,13 +265,17 @@ class LicenseLifecycleService
                 throw new InvalidStateTransitionException('Cannot renew a permanently revoked license.');
             }
 
-            $parsedNewExpiry = Carbon::parse($newExpiresAt, 'UTC');
-            if ($parsedNewExpiry->lte($serverNow)) {
-                throw new InvalidStateTransitionException('New expiration timestamp must be in the future relative to server UTC time.');
-            }
-
             $previousExpiresAt = $lockedLicense->expires_at?->toIso8601String();
-            $lockedLicense->expires_at = $parsedNewExpiry;
+
+            if ($validityType === 'custom') {
+                $parsedNewExpiry = Carbon::parse($newExpiresAt, 'UTC');
+                if ($parsedNewExpiry->lte($serverNow)) {
+                    throw new InvalidStateTransitionException('New expiration timestamp must be in the future relative to server UTC time.');
+                }
+                $lockedLicense->expires_at = $parsedNewExpiry;
+            } else {
+                $lockedLicense->expires_at = null;
+            }
 
             // Target status resolution based on origin:
             // Expired UNUSED -> remains UNUSED (no activation created)
@@ -281,8 +299,10 @@ class LicenseLifecycleService
                 'user_agent' => request()?->userAgent(),
                 'payload' => [
                     'reason' => $reason ? trim($reason) : null,
+                    'validity_type' => $validityType,
                     'previous_expires_at' => $previousExpiresAt,
-                    'new_expires_at' => $lockedLicense->expires_at->toIso8601String(),
+                    'new_expires_at' => $lockedLicense->expires_at?->toIso8601String(),
+                    'is_lifetime' => $lockedLicense->isLifetime(),
                     'origin_status' => $originStatus->value,
                     'target_status' => $lockedLicense->status->value,
                 ],
